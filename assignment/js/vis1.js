@@ -19,7 +19,8 @@ let canvasWidth, canvasHeight = 0;
 let container = null;
 let volume = null;
 let fileInput = null;
-let testShader = null;
+//let testShader = null;
+let singlePassMipShader = null;
 
 /**
  * Load all data and initialize UI here.
@@ -40,7 +41,8 @@ function init() {
     fileInput.addEventListener('change', readFile);
 
     // dummy shader gets a color as input
-    testShader = new TestShader([255.0, 255.0, 0.0]);
+    //testShader = new TestShader([255.0, 255.0, 0.0]);
+    singlePassMipShader = new SinglePassMipShader();
 }
 
 /**
@@ -53,6 +55,9 @@ function readFile(){
 
         let data = new Uint16Array(reader.result);
         volume = new Volume(data);
+
+        singlePassMipShader.setVolume(volume);
+        singlePassMipShader.setSteps(200);
 
         resetVis();
     };
@@ -69,12 +74,11 @@ async function resetVis(){
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera( 75, canvasWidth / canvasHeight, 0.1, 1000 );
 
-    // dummy scene: we render a box and attach our color test shader as material
-    const testCube = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
-    const testMaterial = testShader.material;
-    await testShader.load(); // this function needs to be called explicitly, and only works within an async function!
-    const testMesh = new THREE.Mesh(testCube, testMaterial);
-    scene.add(testMesh);
+    const box = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
+    const material = singlePassMipShader.material;
+    await singlePassMipShader.load(); // this function needs to be called explicitly, and only works within an async function!
+    const mesh = new THREE.Mesh(box, material);
+    scene.add(mesh);
 
     // our camera orbits around an object centered at (0,0,0)
     orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0,0,0), 2*volume.max, renderer.domElement);
@@ -88,6 +92,16 @@ async function resetVis(){
  */
 function paint(){
     if (volume) {
+        const mesh = scene.children.find(obj => obj instanceof THREE.Mesh);
+        const material = mesh.material;
+
+        const invModel = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+        const eyeOs = camera.position.clone().applyMatrix4(invModel);
+        eyeOs.divide(new THREE.Vector3(volume.width, volume.height, volume.depth));
+
+        // Update uniform
+        material.uniforms.uEyeOs.value.copy(eyeOs);
+
         renderer.render(scene, camera);
     }
 }

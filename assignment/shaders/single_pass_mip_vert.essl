@@ -1,0 +1,21 @@
+#ifndef GL_ES
+#version 330 es
+#endif
+
+// precomputed on CPU: camera in object-space
+uniform vec3 uEyeOs;
+
+uniform vec3 uVolumeDims;
+
+out vec3 vEye;
+out vec3 vDir;
+
+void main() {
+    vEye = uEyeOs;
+
+    vec3 posNorm = position / uVolumeDims;
+    vDir = posNorm - vEye;
+
+    // MVP
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}

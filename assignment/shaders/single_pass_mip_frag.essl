@@ -1,0 +1,88 @@
+#ifndef GL_ES
+#version 330 es
+#endif
+
+precision highp int;
+precision highp float;
+precision highp sampler3D;
+
+uniform sampler3D volume;
+uniform vec3 uVolumeDims;
+uniform float steps;
+
+in vec3 vEye;
+in vec3 vDir;
+
+out vec4 fragColor;
+
+vec2 intersect_box(vec3 rayOrigin, vec3 rayDir) {
+    vec3 boxMin = vec3(-0.5);
+    vec3 boxMax = vec3(0.5);
+
+    // Precompute inverse direction to avoid divisions
+    vec3 rayInvDir = 1.0 / rayDir;
+
+    // Compute intersection distances for x-axis slabs
+    float tx1 = (boxMin.x - rayOrigin.x) * rayInvDir.x;
+    float tx2 = (boxMax.x - rayOrigin.x) * rayInvDir.x;
+
+    float tmin = min(tx1, tx2);
+    float tmax = max(tx1, tx2);
+
+    // Compute intersection distances for y-axis slabs
+    float ty1 = (boxMin.y - rayOrigin.y) * rayInvDir.y;
+    float ty2 = (boxMax.y - rayOrigin.y) * rayInvDir.y;
+
+    tmin = max(tmin, min(ty1, ty2));
+    tmax = min(tmax, max(ty1, ty2));
+
+    // Compute intersection distances for z-axis slabs
+    float tz1 = (boxMin.z - rayOrigin.z) * rayInvDir.z;
+    float tz2 = (boxMax.z - rayOrigin.z) * rayInvDir.z;
+
+    tmin = max(tmin, min(tz1, tz2));
+    tmax = min(tmax, max(tz1, tz2));
+
+    return vec2(tmin, tmax); // tmin = entry, tmax = exit
+}
+
+void main() {
+    vec3 rayDirection = normalize(vDir);
+    vec2 intersection = intersect_box(vEye, rayDirection);
+
+    // discard if no intersection with the volume bounding box
+    if (intersection.x > intersection.y) {
+        discard;
+    }
+
+    // Clamp the entry point to zero to avoid stepping outside the box
+    float tStart = max(intersection.x, 0.0);
+    float tEnd   = intersection.y;
+
+    // Compute the initial ray position inside the volume (start point)
+    vec3 samplePos = vEye + tStart * rayDirection;
+
+    // Step size along the ray
+    float stepSize = 1.0 / steps;
+
+    // Maximum Intensity Projection (MIP)
+    float maxDensity = 0.0;
+
+    for (float t = tStart; t < tEnd; t += stepSize) {
+        // Convert from [-0.5, 0.5] box to [0,1] texture space by adding 0.5
+        float density = texture(volume, samplePos + vec3(0.5)).r;
+
+        maxDensity = max(maxDensity, density);
+
+        // early exit for performance optimization
+        if (maxDensity >= 0.98) {
+            break;
+        }
+
+        // Advance along the ray
+        samplePos += rayDirection * stepSize;
+    }
+
+    // Output result as grayscale color
+    fragColor = vec4(vec3(maxDensity), 1.0);
+}
