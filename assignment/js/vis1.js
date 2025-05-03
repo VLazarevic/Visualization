@@ -56,7 +56,7 @@ function readFile(){
         let data = new Uint16Array(reader.result);
         volume = new Volume(data);
 
-        createHistogram(Volume.voxels);
+        createHistogram(volume.voxels);
 
         singlePassMipShader.setVolume(volume);
         singlePassMipShader.setSteps(200);
