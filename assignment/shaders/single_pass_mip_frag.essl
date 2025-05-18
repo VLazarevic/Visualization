@@ -73,21 +73,25 @@ void main() {
     // Maximum Intensity Projection (MIP)
     float maxDensity = 0.0;
     bool hit = false;
+    bool planeClipped = false;
 
     for (float t = tStart; t < tEnd; t += stepSize) {
         // Convert from [-0.5, 0.5] box to [0,1] texture space by adding 0.5
         vec3 pos = samplePos + vec3(0.5);
+        vec3 worldPos = pos - vec3(0.5);
 
-        float planeDist = dot(pos, uPlane.xyz) + uPlane.w;
+        float planeDist = dot(worldPos, uPlane.xyz) + uPlane.w;
 
         // Cutting plane logic
         if (uRenderAbove == 1.0) {
             if (planeDist < 0.0) {
+                planeClipped = true;
                 samplePos += rayDirection * stepSize;
                 continue;
             }
         } else { // uRenderAbove == 0.0
             if (planeDist > 0.0) {
+                planeClipped = true;
                 samplePos += rayDirection * stepSize;
                 continue;
             }
@@ -110,7 +114,10 @@ void main() {
     // Output result as grayscale color
     if (hit) {
         fragColor = vec4(vec3(maxDensity), 1.0);
+    } else if (planeClipped) {
+        fragColor = uPlaneColor; // Show plane color if ray clipped by plane
     } else {
-        fragColor = vec4(0.0, 0.0, 0.0, 1.0); // Or uPlaneColor, depending on desired effect
+        discard;
     }
+
 }

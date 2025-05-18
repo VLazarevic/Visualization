@@ -92,7 +92,7 @@ function setupCuttingPlaneUI() {
 
     function handleColorChange() {
         clearTimeout(colorUpdateTimeout);
-        colorUpdateTimeout = setTimeout(throttledUpdateCuttingPlane, updateDelay);
+        colorUpdateTimeout = setTimeout(updateCuttingPlane, updateDelay);
     }
 
     xSlider.addEventListener('input', updateCuttingPlane);
@@ -103,8 +103,8 @@ function setupCuttingPlaneUI() {
 
     // Initialize the color uniform in the shader
     if (singlePassMipShader) {
-        singlePassMipShader.setUniform("uPlaneColor", new THREE.Color("#ffffff"));
-        singlePassMipShader.setUniform("uRenderAbove", 1.0); // Default to rendering above
+        singlePassMipShader.setUniform("uPlaneColor", new THREE.Color("#f50000"));
+        singlePassMipShader.setUniform("uRenderAbove", 1.0);
     }
 }
 
@@ -195,7 +195,6 @@ async function resetVis(){
     orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0, 0, 0), 2 * volume.max, renderer.domElement);
 
     setupCuttingPlaneUI();
-    updateHistogramForCuttingPlane(volume.voxels);
     paint();
 }
 
