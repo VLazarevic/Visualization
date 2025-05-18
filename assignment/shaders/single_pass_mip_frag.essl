@@ -10,6 +10,8 @@ uniform sampler3D volume;
 uniform vec3 uVolumeDims;
 uniform float steps;
 uniform vec4 uPlane;
+uniform float uRenderAbove;
+uniform vec4 uPlaneColor;
 
 
 in vec3 vEye;
@@ -70,15 +72,27 @@ void main() {
 
     // Maximum Intensity Projection (MIP)
     float maxDensity = 0.0;
+    bool hit = false;
 
     for (float t = tStart; t < tEnd; t += stepSize) {
         // Convert from [-0.5, 0.5] box to [0,1] texture space by adding 0.5
         vec3 pos = samplePos + vec3(0.5);
 
-        if (dot(pos, uPlane.xyz) + uPlane.w < 0.0) {
-            samplePos += rayDirection * stepSize;
-            continue;
+        float planeDist = dot(pos, uPlane.xyz) + uPlane.w;
+
+        // Cutting plane logic
+        if (uRenderAbove == 1.0) {
+            if (planeDist < 0.0) {
+                samplePos += rayDirection * stepSize;
+                continue;
+            }
+        } else { // uRenderAbove == 0.0
+            if (planeDist > 0.0) {
+                samplePos += rayDirection * stepSize;
+                continue;
+            }
         }
+        hit = true;
 
         float density = texture(volume, samplePos + vec3(0.5)).r;
 
@@ -94,5 +108,9 @@ void main() {
     }
 
     // Output result as grayscale color
-    fragColor = vec4(vec3(maxDensity), 1.0);
+    if (hit) {
+        fragColor = vec4(vec3(maxDensity), 1.0);
+    } else {
+        fragColor = vec4(0.0, 0.0, 0.0, 1.0); // Or uPlaneColor, depending on desired effect
+    }
 }

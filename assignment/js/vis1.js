@@ -61,19 +61,29 @@ function setupCuttingPlaneUI() {
 
     function updateCuttingPlane() {
         if (singlePassMipShader && singlePassMipShader.material) {
-            const nx = parseFloat(xSlider.value);
-            const ny = parseFloat(ySlider.value);
-            const nz = 0;
-            const d = 0;
+            const rotationX = parseFloat(xSlider.value) * Math.PI; // Scale to radians if needed
+            const rotationY = parseFloat(ySlider.value) * Math.PI; // Scale to radians if needed
             const color = colorPicker.value;
             const renderAbove = renderAboveRadio.checked;
 
-            const norm = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+            // Initial normal vector (perpendicular to Z)
+            let normal = new THREE.Vector3(0, 0, -1);
+
+            // Apply rotations
+            normal.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationX); // Rotate around X-axis
+            normal.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationY); // Rotate around Y-axis
+
+            normal.normalize(); // Ensure it's a unit vector
+
             singlePassMipShader.material.uniforms.uPlane.value.set(
-                nx / norm, ny / norm, nz / norm, d
+                normal.x,
+                normal.y,
+                normal.z,
+                0 // Offset is 0 for rotation around origin
             );
             singlePassMipShader.material.uniforms.uPlaneColor.value = new THREE.Color(color);
             singlePassMipShader.material.uniforms.uRenderAbove.value = renderAbove ? 1.0 : 0.0;
+
 
             paint();
             updateHistogramForCuttingPlane();
@@ -185,7 +195,7 @@ async function resetVis(){
     orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0, 0, 0), 2 * volume.max, renderer.domElement);
 
     setupCuttingPlaneUI();
-    updateHistogram(volume.voxels);
+    updateHistogramForCuttingPlane(volume.voxels);
     paint();
 }
 
