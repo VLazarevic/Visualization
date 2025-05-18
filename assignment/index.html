@@ -26,7 +26,7 @@
 <body onload="init()">
 
 <h1>Vis1 Exercise</h1>
-<h2>Your names here</h2>
+<h2>Harhammer Martin, Lazarevic Valentino, Dreier Martin</h2>
 
 <!-- data selector -->
 <p>Select your data here: <input id="upload" type="file"></p>
@@ -38,6 +38,20 @@
 
     <!-- container for interactive transfer function -->
     <div id="tfContainer"></div>
+
+    <div id="cuttingPlaneControls" style="color: white; margin-top: 20px;">
+        <h4>Render Side</h4>
+        <label><input type="radio" name="renderSide" value="above" checked> Above</label>
+        <label><input type="radio" name="renderSide" value="below"> Below</label><br>
+        <h4>Cutting Plane Controls</h4>
+        <label for="planeX">Rotation X:</label>
+        <input type="range" id="planeX" min="-1" max="1" step="0.01" value="0"><br>
+        <label for="planeY">Rotation Y:</label>
+        <input type="range" id="planeY" min="-1" max="1" step="0.01" value="0"><br>
+        <label for="planeColor">Color:</label>
+        <input type="color" id="planeColor" value="#ffffff"><br>
+    </div>
+
 
 </div>
 

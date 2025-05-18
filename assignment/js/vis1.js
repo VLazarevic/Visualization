@@ -43,7 +43,92 @@ function init() {
     // dummy shader gets a color as input
     //testShader = new TestShader([255.0, 255.0, 0.0]);
     singlePassMipShader = new SinglePassMipShader();
+    setupCuttingPlaneUI();
+
 }
+
+// vis1.js
+
+function setupCuttingPlaneUI() {
+    const xSlider = document.getElementById('planeX');
+    const ySlider = document.getElementById('planeY');
+    const colorPicker = document.getElementById('planeColor');
+    const renderAboveRadio = document.querySelector('input[name="renderSide"][value="above"]');
+    const renderBelowRadio = document.querySelector('input[name="renderSide"][value="below"]');
+
+    let colorUpdateTimeout;
+    const updateDelay = 50;
+
+    function updateCuttingPlane() {
+        if (singlePassMipShader && singlePassMipShader.material) {
+            const nx = parseFloat(xSlider.value);
+            const ny = parseFloat(ySlider.value);
+            const nz = 0;
+            const d = 0;
+            const color = colorPicker.value;
+            const renderAbove = renderAboveRadio.checked;
+
+            const norm = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+            singlePassMipShader.material.uniforms.uPlane.value.set(
+                nx / norm, ny / norm, nz / norm, d
+            );
+            singlePassMipShader.material.uniforms.uPlaneColor.value = new THREE.Color(color);
+            singlePassMipShader.material.uniforms.uRenderAbove.value = renderAbove ? 1.0 : 0.0;
+
+            paint();
+            updateHistogramForCuttingPlane();
+        }
+    }
+
+    function handleColorChange() {
+        clearTimeout(colorUpdateTimeout);
+        colorUpdateTimeout = setTimeout(throttledUpdateCuttingPlane, updateDelay);
+    }
+
+    xSlider.addEventListener('input', updateCuttingPlane);
+    ySlider.addEventListener('input', updateCuttingPlane);
+    colorPicker.addEventListener('input', updateCuttingPlane);
+    renderAboveRadio.addEventListener('change', updateCuttingPlane);
+    renderBelowRadio.addEventListener('change', updateCuttingPlane);
+
+    // Initialize the color uniform in the shader
+    if (singlePassMipShader) {
+        singlePassMipShader.setUniform("uPlaneColor", new THREE.Color("#ffffff"));
+        singlePassMipShader.setUniform("uRenderAbove", 1.0); // Default to rendering above
+    }
+}
+
+function updateHistogramForCuttingPlane() {
+    if (volume && singlePassMipShader && singlePassMipShader.material) {
+        const planeNormal = new THREE.Vector3(
+            singlePassMipShader.material.uniforms.uPlane.value.x,
+            singlePassMipShader.material.uniforms.uPlane.value.y,
+            singlePassMipShader.material.uniforms.uPlane.value.z
+        ).normalize();
+        const planeD = singlePassMipShader.material.uniforms.uPlane.value.w;
+        const renderAbove = singlePassMipShader.material.uniforms.uRenderAbove.value === 1.0;
+
+        const visibleVoxels = [];
+        for (let z = 0; z < volume.depth; z++) {
+            for (let y = 0; y < volume.height; y++) {
+                for (let x = 0; x < volume.width; x++) {
+                    const worldX = x / volume.width - 0.5;
+                    const worldY = y / volume.height - 0.5;
+                    const worldZ = z / volume.depth - 0.5;
+
+                    const dotProduct = planeNormal.x * worldX + planeNormal.y * worldY + planeNormal.z * worldZ;
+
+                    if ((renderAbove && dotProduct > planeD) || (!renderAbove && dotProduct < planeD)) {
+                        const index = x + y * volume.width + z * volume.width * volume.height;
+                        visibleVoxels.push(volume.voxels[index]);
+                    }
+                }
+            }
+        }
+        createHistogram(visibleVoxels);
+    }
+}
+
 
 /**
  * Handles the file reader. No need to change anything here.
@@ -74,37 +159,49 @@ function readFile(){
 async function resetVis(){
     // create new empty scene and perspective camera
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera( 75, canvasWidth / canvasHeight, 0.1, 1000 );
+    camera = new THREE.PerspectiveCamera(75, canvasWidth / canvasHeight, 0.1, 1000);
 
     const box = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
+    await singlePassMipShader.load();
     const material = singlePassMipShader.material;
-    await singlePassMipShader.load(); // this function needs to be called explicitly, and only works within an async function!
+
+    const xSlider = document.getElementById('planeX');
+    const ySlider = document.getElementById('planeY');
+    const colorPicker = document.getElementById('planeColor');
+    const renderAboveRadio = document.querySelector('input[name="renderSide"][value="above"]');
+
+    const nx = parseFloat(xSlider.value);
+    const ny = parseFloat(ySlider.value);
+    const nz = 0;
+    const d = 0;
+    const norm = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1.0;
+    material.uniforms.uPlane.value.set(nx / norm, ny / norm, nz / norm, d);
+    material.uniforms.uPlaneColor.value = new THREE.Color(colorPicker.value);
+    material.uniforms.uRenderAbove.value = renderAboveRadio.checked ? 1.0 : 0.0;
+
     const mesh = new THREE.Mesh(box, material);
     scene.add(mesh);
 
-    // our camera orbits around an object centered at (0,0,0)
-    orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0,0,0), 2*volume.max, renderer.domElement);
+    orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0, 0, 0), 2 * volume.max, renderer.domElement);
 
-    // init paint loop
-    requestAnimationFrame(paint);
+    setupCuttingPlaneUI();
+    updateHistogram(volume.voxels);
+    paint();
 }
 
 /**
  * Render the scene and update all necessary shader information.
  */
-function paint(){
-    if (volume) {
+function paint() {
+    if (volume && scene && camera) {
         const mesh = scene.children.find(obj => obj instanceof THREE.Mesh);
-        const material = mesh.material;
-
-        const invModel = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
-        const eyeOs = camera.position.clone().applyMatrix4(invModel);
-        eyeOs.divide(new THREE.Vector3(volume.width, volume.height, volume.depth));
-
-        // Update uniform
-        material.uniforms.uEyeOs.value.copy(eyeOs);
-
-        renderer.render(scene, camera);
+        if (mesh && mesh.material) {
+            const invModel = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+            const eyeOs = camera.position.clone().applyMatrix4(invModel);
+            eyeOs.divide(new THREE.Vector3(volume.width, volume.height, volume.depth));
+            mesh.material.uniforms.uEyeOs.value.copy(eyeOs);
+            renderer.render(scene, camera);
+        }
     }
 }
 

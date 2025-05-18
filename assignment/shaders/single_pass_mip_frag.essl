@@ -9,6 +9,8 @@ precision highp sampler3D;
 uniform sampler3D volume;
 uniform vec3 uVolumeDims;
 uniform float steps;
+uniform vec4 uPlane;
+
 
 in vec3 vEye;
 in vec3 vDir;
@@ -50,6 +52,7 @@ void main() {
     vec3 rayDirection = normalize(vDir);
     vec2 intersection = intersect_box(vEye, rayDirection);
 
+
     // discard if no intersection with the volume bounding box
     if (intersection.x > intersection.y) {
         discard;
@@ -70,6 +73,13 @@ void main() {
 
     for (float t = tStart; t < tEnd; t += stepSize) {
         // Convert from [-0.5, 0.5] box to [0,1] texture space by adding 0.5
+        vec3 pos = samplePos + vec3(0.5);
+
+        if (dot(pos, uPlane.xyz) + uPlane.w < 0.0) {
+            samplePos += rayDirection * stepSize;
+            continue;
+        }
+
         float density = texture(volume, samplePos + vec3(0.5)).r;
 
         maxDensity = max(maxDensity, density);
@@ -79,8 +89,8 @@ void main() {
             break;
         }
 
-        // Advance along the ray
         samplePos += rayDirection * stepSize;
+
     }
 
     // Output result as grayscale color
