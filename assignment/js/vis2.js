@@ -294,23 +294,30 @@ async function readFile() {
 }
 
 async function resetVis() {
-    // create new empty scene and perspective camera
-    scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(75, canvasWidth / canvasHeight, 0.1, 1000);
+    // fresh scene graph and perspective camera
+    scene   = new THREE.Scene();
+    camera  = new THREE.PerspectiveCamera(75, canvasWidth / canvasHeight, 0.1, 1000);
 
+    // create a box matching the volume’s dimensions and wrap it with the shader material
+    const bboxGeom     = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
+    const volumeShader = firstHitShader.material;
 
-    const boundingBox = new THREE.BoxGeometry(volume.width, volume.height, volume.depth); // create bounding box in which we render the volume
-    const material = firstHitShader.material;
-    await firstHitShader.load(); // this function needs to be called explicitly, and only works within an async function!
-    const mesh = new THREE.Mesh(boundingBox, material);
-    scene.add(mesh);
+    await firstHitShader.load();   // shader → compile & link before use
+    const volumeMesh = new THREE.Mesh(bboxGeom, volumeShader);
+    scene.add(volumeMesh);
 
+    // build / refresh cutting-plane controls
     setupCuttingPlaneUI();
 
-    // our camera orbits around an object centered at (0,0,0)
-    orbitCamera = new OrbitCamera(camera, new THREE.Vector3(0, 0, 0), 2 * volume.max, renderer.domElement);
+    // place an orbit camera that circles around the origin
+    orbitCamera = new OrbitCamera(
+        camera,
+        new THREE.Vector3(0, 0, 0),      // look-at target
+        2 * volume.max,                  // default distance
+        renderer.domElement              // input element for mouse control
+    );
 
-    // init paint loop
+    // kick off the render loop
     requestAnimationFrame(paint);
 }
 
