@@ -13,9 +13,25 @@ body {
     border: 0px solid black;
 }
 
-#viewContainer{
-    flex: 2;
+/* Volume rendering takes 70% of screen width */
+#viewContainer {
+    flex: 0 0 70%;
+    height: 600px;
+    background: black;
 }
+
+/* Controls (transfer + plane) stacked vertically */
+#controlsContainer {
+    flex: 0 0 30%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    color: white;
+}
+
+/*#viewContainer{
+    flex: 2;
+}*/
 
 #tfContainer{
     flex: 1;

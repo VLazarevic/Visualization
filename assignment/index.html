@@ -17,8 +17,8 @@
     <script src="js/testShader.js"></script>
     <script src="js/volume.js"></script>
     <script src="js/camera.js"></script>
-    <script src="js/singlePassMipShader.js"></script>
-    <script src="js/vis1.js"></script>
+    <script src="js/firstHitShader.js"></script>
+    <script src="js/vis2.js"></script>
 
 </head>
 
@@ -36,23 +36,39 @@
     <!-- volume rendering container -->
     <div id="viewContainer"></div>
 
-    <!-- container for interactive transfer function -->
-    <div id="tfContainer"></div>
+    <!-- controls container -->
+    <div id="controlsContainer">
 
-    <div id="cuttingPlaneControls" style="color: white; margin-top: 20px;">
-        <h4>Render Side</h4>
-        <label><input type="radio" name="renderSide" value="above" checked> Above</label>
-        <label><input type="radio" name="renderSide" value="below"> Below</label><br>
-        <h4>Cutting Plane Controls</h4>
-        <label for="planeX">Rotation X:</label>
-        <input type="range" id="planeX" min="-1" max="1" step="0.01" value="0"><br>
-        <label for="planeY">Rotation Y:</label>
-        <input type="range" id="planeY" min="-1" max="1" step="0.01" value="0"><br>
-        <label for="planeColor">Color:</label>
-        <input type="color" id="planeColor" value="#f50000"><br>
+        <!-- 1. Save/Delete + surface color -->
+        <div id="save">
+            <button id="saveButton">Save layer</button>
+            <button id="deleteButton">Delete layer</button>
+            <div id="arrayStrContainer">
+                <div class="button-text-container">
+                    <label for="surfaceColor" style="margin-right: 30px">Choose surface color: </label>
+                    <input type="color" id="surfaceColor" name="head" value="#ffffff" />
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Transfer function (histogram) -->
+        <div id="tfContainer"></div>
+
+        <!-- 3. Cutting plane controls -->
+        <div id="cuttingPlaneControls" style="color: white;">
+            <h4>Render Side</h4>
+            <label><input type="radio" name="renderSide" value="above" checked> Above</label>
+            <label><input type="radio" name="renderSide" value="below"> Below</label><br>
+            <h4>Cutting Plane Controls</h4>
+            <label for="planeX">Rotation X:</label>
+            <input type="range" id="planeX" min="-1" max="1" step="0.01" value="0"><br>
+            <label for="planeY">Rotation Y:</label>
+            <input type="range" id="planeY" min="-1" max="1" step="0.01" value="0"><br>
+            <label for="planeColor">Color:</label>
+            <input type="color" id="planeColor" value="#f50000"><br>
+        </div>
+
     </div>
-
-
 </div>
 
 
