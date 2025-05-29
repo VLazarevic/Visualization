@@ -5,7 +5,7 @@ const TF_MARGIN = { top: 10, right: 60, bottom: 40, left: 40 };
 const TF_ADJ_WIDTH = TF_WIDTH  - TF_MARGIN.left - TF_MARGIN.right;  // drawable area
 const TF_ADJ_HEIGHT = TF_HEIGHT - TF_MARGIN.top  - TF_MARGIN.bottom;
 
-const MAX_LAYERS = 4;
+const MAX_LAYERS = 3;
 let layerIdx = 0;
 
 let renderer, camera, scene, orbitCamera;
