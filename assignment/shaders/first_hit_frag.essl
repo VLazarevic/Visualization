@@ -9,9 +9,9 @@ precision highp sampler3D;
 uniform sampler3D volume;
 uniform sampler3D gradient;
 
-uniform vec4 uPlane;          // xyz = normal, w = offset (distance from origin)
-uniform float uRenderAbove;   // 1.0 = render above, 0.0 = below
-uniform vec4 uPlaneColor;     // color for clipped region (optional)
+uniform vec4 uPlane;
+uniform float uRenderAbove;
+uniform vec3 uPlaneColor;
 
 
 uniform float steps;
@@ -62,92 +62,92 @@ vec3 compute_gradient(vec3 coord) {
 
 void main() {
     vec3 dir = normalize(vDir);
-        vec2 bounds = intersect_box(vEye, dir);
+    vec2 bounds = intersect_box(vEye, dir);
 
-        // Skip fragment if ray misses volume
-        if (bounds.x > bounds.y)
-            discard;
+    // Skip fragment if ray misses volume
+    if (bounds.x > bounds.y)
+        discard;
 
-        bounds.x = max(bounds.x, 0.0);
+    bounds.x = max(bounds.x, 0.0);
 
-        vec3 pos = vEye + bounds.x * dir; // Ray start point
+    vec3 pos = vEye + bounds.x * dir; // Ray start point
 
-        // Distance per ray step
-        float stepSize = 1.0 / steps;
+    // Distance per ray step
+    float stepSize = 1.0 / steps;
 
-        // Accumulators for color and opacity
-        vec3 colorAccum = vec3(0.0);
-        float alphaAccum = 0.0;
+    // Accumulators for color and opacity
+    vec3 colorAccum = vec3(0.0);
+    float alphaAccum = 0.0;
 
-        // Lighting configuration
-        vec3 light = vec3(1.0);
-        vec3 lightVec = normalize(vec3(-1.0, 1.0, 1.0)); // Incoming light direction
-        vec3 eyeVec = dir;
-        vec3 halfVec = normalize(lightVec + eyeVec); // Halfway vector for specular
+    // Lighting configuration
+    vec3 light = vec3(1.0);
+    vec3 lightVec = normalize(vec3(-1.0, 1.0, 1.0)); // Incoming light direction
+    vec3 eyeVec = dir;
+    vec3 halfVec = normalize(lightVec + eyeVec); // Halfway vector for specular
 
-        // Previous sampling position and value
-        vec3 lastPos = pos - dir * stepSize;
-        float lastVal = texture(volume, lastPos + 0.5).r;
+    // Previous sampling position and value
+    vec3 lastPos = pos - dir * stepSize;
+    float lastVal = texture(volume, lastPos + 0.5).r;
 
-        // March through the volume
-        for (float t = bounds.x; t < bounds.y; t += stepSize) {
+    // March through the volume
+    for (float t = bounds.x; t < bounds.y; t += stepSize) {
 
-            // --- CUTTING PLANE CLIP HERE ---
-            vec3 posWorld = pos;
-            float planeDist = dot(posWorld, uPlane.xyz) + uPlane.w;
+        // --- CUTTING PLANE CLIP HERE ---
+        vec3 posWorld = pos;
+        float planeDist = dot(posWorld, uPlane.xyz) + uPlane.w;
 
-            if ((uRenderAbove == 1.0 && planeDist < 0.0) ||
-                (uRenderAbove == 0.0 && planeDist > 0.0)) {
-                lastVal = texture(volume, pos + 0.5).r;
-                lastPos = pos;
-                pos += dir * stepSize;
-                continue;
-            }
-
-            float val = texture(volume, pos + 0.5).r;
-
-            for (int i = 0; i < MAX_ISO_VALUES; i++) {
-
-                if (val >= iso_values[i] && iso_values[i] >= lastVal) {
-                    vec3 hitPos = mix(lastPos, pos, (iso_values[i] - lastVal) / (val - lastVal));
-
-                    vec3 normal = compute_gradient(hitPos + 0.5);
-
-                    // Blinn-Phong components
-                    float ambient = 0.2;
-                    vec3 ambientLight = ambient * light;
-
-                    float diffuseFactor = max(dot(normal, lightVec), 0.0);
-                    vec3 diffuseLight = diffuseFactor * light;
-
-                    float specular = 0.5;
-                    float shininess = 32.0;
-                    float specFactor = pow(max(dot(normal, halfVec), 0.0), shininess);
-                    vec3 specularLight = specular * specFactor * light;
-
-                    // Final shaded color
-                    vec3 lit = (ambientLight + diffuseLight + specularLight) * surface_colors[i];
-
-                    // Composite color and alpha
-                    float alpha = opacities[i];
-                    colorAccum += (1.0 - alphaAccum) * alpha * lit;
-                    alphaAccum += (1.0 - alphaAccum) * alpha;
-
-                    // Early termination if fully opaque
-                    if (alphaAccum >= 1.0) {
-                        fragColor = vec4(colorAccum, alphaAccum);
-                        return;
-                    }
-
-                    break;
-                }
-            }
-
-            lastVal = val;
+        if ((uRenderAbove == 1.0 && planeDist < 0.0) ||
+            (uRenderAbove == 0.0 && planeDist > 0.0)) {
+            lastVal = texture(volume, pos + 0.5).r;
             lastPos = pos;
             pos += dir * stepSize;
+            continue;
         }
 
-        // Final fragment output
-        fragColor = vec4(colorAccum, alphaAccum);
+        float val = texture(volume, pos + 0.5).r;
+
+        for (int i = 0; i < MAX_ISO_VALUES; i++) {
+
+            if (val >= iso_values[i] && iso_values[i] >= lastVal) {
+                vec3 hitPos = mix(lastPos, pos, (iso_values[i] - lastVal) / (val - lastVal));
+
+                vec3 normal = compute_gradient(hitPos + 0.5);
+
+                // Blinn-Phong components
+                float ambient = 0.2;
+                vec3 ambientLight = ambient * light;
+
+                float diffuseFactor = max(dot(normal, lightVec), 0.0);
+                vec3 diffuseLight = diffuseFactor * light;
+
+                float specular = 0.5;
+                float shininess = 32.0;
+                float specFactor = pow(max(dot(normal, halfVec), 0.0), shininess);
+                vec3 specularLight = specular * specFactor * light;
+
+                // Final shaded color
+                vec3 lit = (ambientLight + diffuseLight + specularLight) * surface_colors[i];
+
+                // Composite color and alpha
+                float alpha = opacities[i];
+                colorAccum += (1.0 - alphaAccum) * alpha * lit;
+                alphaAccum += (1.0 - alphaAccum) * alpha;
+
+                // Early termination if fully opaque
+                if (alphaAccum >= 1.0) {
+                    fragColor = vec4(colorAccum, alphaAccum);
+                    return;
+                }
+
+                break;
+            }
+        }
+
+        lastVal = val;
+        lastPos = pos;
+        pos += dir * stepSize;
     }
+
+    // Final fragment output
+    fragColor = vec4(colorAccum, alphaAccum);
+}

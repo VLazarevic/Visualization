@@ -1,9 +1,9 @@
 /* ---------- TF (transfer-function) chart size ---------- */
-const TF_WIDTH  = 500;               // full SVG width
+const TF_WIDTH = 500;               // full SVG width
 const TF_HEIGHT = TF_WIDTH / 2;      // full SVG height
 const TF_MARGIN = { top: 10, right: 60, bottom: 40, left: 40 };
-const TF_ADJ_WIDTH = TF_WIDTH  - TF_MARGIN.left - TF_MARGIN.right;  // drawable area
-const TF_ADJ_HEIGHT = TF_HEIGHT - TF_MARGIN.top  - TF_MARGIN.bottom;
+const TF_ADJ_WIDTH = TF_WIDTH - TF_MARGIN.left - TF_MARGIN.right;  // drawable area
+const TF_ADJ_HEIGHT = TF_HEIGHT - TF_MARGIN.top - TF_MARGIN.bottom;
 
 const MAX_LAYERS = 3;
 let layerIdx = 0;
@@ -14,36 +14,38 @@ let container = null;
 let volume = null;
 let fileInput = null;
 let firstHitShader = null;
+let cuttingPlaneEditor = null; // New instance for the editor
 
 let cursor_x;
 let cursor_y;
 
-
 let isoValues = [0.5, -1, -1]; // Example iso-values
 let surfaceColors = [new THREE.Vector3(1, 1, 1), new THREE.Vector3(1, 1, 1), new THREE.Vector3(1, 1, 1)];
-
 let opacities = [1.0, -1, -1]; // Example opacities
 
 let theColorRgb = new THREE.Vector3(255, 255, 255);
 
 
 
+/**
+ * Initializes the main application components.
+ */
 function init() {
-    // volume viewer
+    // Volume viewer container
     container = document.getElementById("viewContainer");
     canvasWidth = window.innerWidth * 0.7;
     canvasHeight = window.innerHeight * 0.7;
 
     // WebGL renderer
     renderer = new THREE.WebGLRenderer();
-    renderer.setSize( canvasWidth, canvasHeight );
-    container.appendChild( renderer.domElement );
+    renderer.setSize(canvasWidth, canvasHeight);
+    container.appendChild(renderer.domElement);
 
-    // read and parse volume file
+    // Read and parse volume file
     fileInput = document.getElementById("upload");
     fileInput.addEventListener('change', readFile);
 
-    // create new maximum intensity projection shader
+    // Create new first hit shader
     firstHitShader = new FirstHitShader();
 
     saveButtonPress();
@@ -53,21 +55,24 @@ function init() {
     firstHitShader.setSurfaceColors(surfaceColors);
     firstHitShader.setOpacities(opacities);
 
-
-    // color changing
+    // Color changing for transfer function
     var colorInput = document.getElementById("surfaceColor");
-
     colorInput.addEventListener("input", function () {
         let theColor = colorInput.value;
-
         theColorRgb = hexToRgb(theColor);
-
-        surfaceColors[layerIdx] = new THREE.Vector3(theColorRgb.x / 255.0, theColorRgb.y / 255.0, theColorRgb.z / 255.0)
+        surfaceColors[layerIdx] = new THREE.Vector3(theColorRgb.x / 255.0, theColorRgb.y / 255.0, theColorRgb.z / 255.0);
         firstHitShader.setSurfaceColors(surfaceColors);
         paint();
     }, false);
+
+    // Initialize the cutting plane editor
+    cuttingPlaneEditor = new CuttingPlaneEditor(firstHitShader, paint, updateHistogramForCuttingPlane);
+    cuttingPlaneEditor.init();
 }
 
+/**
+ * Handles the save button press for transfer function layers.
+ */
 function saveButtonPress() {
     document.getElementById('saveButton').addEventListener("click", function () {
         if (layerIdx === MAX_LAYERS) {
@@ -91,7 +96,9 @@ function saveButtonPress() {
     });
 }
 
-
+/**
+ * Updates the iso values and opacities for the current layer.
+ */
 function updateValues() {
     if (isoValues[layerIdx] === -1) {
         isoValues[layerIdx] = cursor_x;
@@ -102,9 +109,12 @@ function updateValues() {
     paint();
 }
 
+/**
+ * Updates the visual representation of saved transfer function layers.
+ */
 function updateSlider() {
     const svg = d3.select('#tfContainer').select('svg').select('g');
-    
+
     svg.selectAll(".saved-line").remove();
     svg.selectAll(".saved-circle").remove();
 
@@ -119,7 +129,7 @@ function updateSlider() {
             .attr("y2", TF_ADJ_HEIGHT)
             .attr("class", "saved-line")
             .style("stroke", "rgb(" + surfaceColors[i].x * 255 + ", " + surfaceColors[i].y * 255 + ", " + surfaceColors[i].z * 255 + ")")
-            .style("stroke-width", "2px")
+            .style("stroke-width", "2px");
 
         svg.insert("circle", ":first-child")
             .attr("cx", newX)
@@ -127,18 +137,22 @@ function updateSlider() {
             .attr("r", 10)
             .attr("class", "saved-circle")
             .style("fill", "rgb(" + surfaceColors[i].x * 255 + ", " + surfaceColors[i].y * 255 + ", " + surfaceColors[i].z * 255 + ")")
-            .style("stroke-width", "2px")
+            .style("stroke-width", "2px");
     }
 }
 
+/**
+ * Resets the live slider on the transfer function chart.
+ */
 function resetLiveSlider() {
     const svg = d3.select('#tfContainer').select('svg').select('g');
     svg.selectAll('.live-line').remove();
     svg.selectAll('.live-ball').remove();
 }
 
-
-
+/**
+ * Creates the interactive live slider on the transfer function chart.
+ */
 function createLiveSlider() {
     const svg = d3.select('#tfContainer').select('svg').select('g');
 
@@ -156,7 +170,9 @@ function createLiveSlider() {
     }, true);
 }
 
-
+/**
+ * Handles the delete button press for transfer function layers.
+ */
 function deleteButtonPress() {
     document.getElementById('deleteButton').addEventListener("click", function () {
         if (layerIdx <= 0) {
@@ -174,9 +190,14 @@ function deleteButtonPress() {
         document.getElementById('surfaceColor').value = '#ffffff';
         updateSlider();
         paint();
-    })
+    });
 }
 
+/**
+ * Converts a hex color string to an RGB THREE.Vector3.
+ * @param {string} hexStr - The hex color string (e.g., "#RRGGBB" or "#RGB").
+ * @returns {THREE.Vector3} - The RGB color as a Vector3 (0-255).
+ */
 function hexToRgb(hexStr) {
     // strip leading “#” if present
     const raw = hexStr.replace(/^#/, '');
@@ -189,12 +210,16 @@ function hexToRgb(hexStr) {
     // convert to integer and split into RGB bytes
     const intVal = parseInt(full, 16);
     const r = (intVal >> 16) & 0xff;
-    const g = (intVal >>  8) & 0xff;
-    const b =  intVal        & 0xff;
+    const g = (intVal >> 8) & 0xff;
+    const b = intVal & 0xff;
 
     return new THREE.Vector3(r, g, b);
 }
 
+/**
+ * Creates or updates the density histogram using D3.js.
+ * @param {Array<number>} voxels - The array of voxel density values.
+ */
 function createHistogram(voxels) {
     const container = d3.select("#tfContainer");
 
@@ -273,6 +298,9 @@ function createHistogram(voxels) {
     createLiveSlider();
 }
 
+/**
+ * Reads and parses the uploaded volume file.
+ */
 async function readFile() {
     let reader = new FileReader();
     reader.onloadend = function () {
@@ -282,7 +310,7 @@ async function readFile() {
         volume = new Volume(data);
         createHistogram(volume.voxels);
 
-        // set shader data
+        // Set shader data
         firstHitShader.setVolume(volume);
         firstHitShader.setSteps(500);
 
@@ -293,23 +321,29 @@ async function readFile() {
     reader.readAsArrayBuffer(fileInput.files[0]);
 }
 
+/**
+ * Resets the visualization, setting up a new scene and camera.
+ */
 async function resetVis() {
-    // fresh scene graph and perspective camera
-    scene   = new THREE.Scene();
-    camera  = new THREE.PerspectiveCamera(75, canvasWidth / canvasHeight, 0.1, 1000);
+    // Fresh scene graph and perspective camera
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, canvasWidth / canvasHeight, 0.1, 1000);
 
-    // create a box matching the volume’s dimensions and wrap it with the shader material
-    const bboxGeom     = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
+    // Create a box matching the volume’s dimensions and wrap it with the shader material
+    const bboxGeom = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
     const volumeShader = firstHitShader.material;
 
-    await firstHitShader.load();   // shader → compile & link before use
+    await firstHitShader.load();   // Shader → compile & link before use
     const volumeMesh = new THREE.Mesh(bboxGeom, volumeShader);
     scene.add(volumeMesh);
 
-    // build / refresh cutting-plane controls
-    setupCuttingPlaneUI();
+    // Update the cutting plane editor with the new volume reference
+    if (cuttingPlaneEditor) {
+        cuttingPlaneEditor.setVolume(volume);
+        cuttingPlaneEditor.updatePlane(); // Ensure plane is initialized with new volume if needed
+    }
 
-    // place an orbit camera that circles around the origin
+    // Place an orbit camera that circles around the origin
     orbitCamera = new OrbitCamera(
         camera,
         new THREE.Vector3(0, 0, 0),      // look-at target
@@ -317,16 +351,22 @@ async function resetVis() {
         renderer.domElement              // input element for mouse control
     );
 
-    // kick off the render loop
+    // Kick off the render loop
     requestAnimationFrame(paint);
 }
 
+/**
+ * Renders the scene.
+ */
 function paint() {
     if (volume) {
         renderer.render(scene, camera);
     }
 }
 
+/**
+ * Updates the histogram to reflect only the voxels visible through the cutting plane.
+ */
 function updateHistogramForCuttingPlane() {
     if (volume && firstHitShader && firstHitShader.material) {
         const planeNormal = new THREE.Vector3(
@@ -341,13 +381,14 @@ function updateHistogramForCuttingPlane() {
         for (let z = 0; z < volume.depth; z++) {
             for (let y = 0; y < volume.height; y++) {
                 for (let x = 0; x < volume.width; x++) {
+                    // Normalize world coordinates to [-0.5, 0.5] for consistency with shader
                     const worldX = x / volume.width - 0.5;
                     const worldY = y / volume.height - 0.5;
                     const worldZ = z / volume.depth - 0.5;
 
                     const dotProduct = planeNormal.x * worldX + planeNormal.y * worldY + planeNormal.z * worldZ;
 
-                    if ((renderAbove && dotProduct > planeD) || (!renderAbove && dotProduct < planeD)) {
+                    if ((renderAbove && dotProduct > -planeD) || (!renderAbove && dotProduct < -planeD)) { // Note: uPlane.w is -D, so compare with -planeD
                         const index = x + y * volume.width + z * volume.width * volume.height;
                         visibleVoxels.push(volume.voxels[index]);
                     }
@@ -358,73 +399,24 @@ function updateHistogramForCuttingPlane() {
     }
 }
 
-function setupCuttingPlaneUI() {
-    const xSlider = document.getElementById('planeX');
-    const ySlider = document.getElementById('planeY');
-    const colorPicker = document.getElementById('planeColor');
-    const renderAboveRadio = document.querySelector('input[name="renderSide"][value="above"]');
-    const renderBelowRadio = document.querySelector('input[name="renderSide"][value="below"]');
-
-    let colorUpdateTimeout;
-    const updateDelay = 50;
-
-    function updateCuttingPlane() {
-        if (firstHitShader && firstHitShader.material) {
-            const rotationX = parseFloat(xSlider.value) * Math.PI; // Scale to radians if needed
-            const rotationY = parseFloat(ySlider.value) * Math.PI; // Scale to radians if needed
-            const color = colorPicker.value;
-            const renderAbove = renderAboveRadio.checked;
-
-            // Initial normal vector (perpendicular to Z)
-            let normal = new THREE.Vector3(0, 0, -1);
-
-            // Apply rotations
-            normal.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationX); // Rotate around X-axis
-            normal.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationY); // Rotate around Y-axis
-
-            normal.normalize(); // Ensure it's a unit vector
-
-            firstHitShader.material.uniforms.uPlane.value.set(
-                normal.x,
-                normal.y,
-                normal.z,
-                0 // Offset is 0 for rotation around origin
-            );
-            firstHitShader.material.uniforms.uPlaneColor.value = new THREE.Color(color);
-            firstHitShader.material.uniforms.uRenderAbove.value = renderAbove ? 1.0 : 0.0;
-
-
-            paint();
-            updateHistogramForCuttingPlane();
-        }
-    }
-
-    function handleColorChange() {
-        clearTimeout(colorUpdateTimeout);
-        colorUpdateTimeout = setTimeout(updateCuttingPlane, updateDelay);
-    }
-
-    xSlider.addEventListener('input', updateCuttingPlane);
-    ySlider.addEventListener('input', updateCuttingPlane);
-    colorPicker.addEventListener('input', updateCuttingPlane);
-    renderAboveRadio.addEventListener('change', updateCuttingPlane);
-    renderBelowRadio.addEventListener('change', updateCuttingPlane);
-
-    // Initialize the color uniform in the shader
-    if (firstHitShader && firstHitShader.material) {
-        firstHitShader.setUniform("uPlaneColor", new THREE.Color("#f50000"));
-        firstHitShader.setUniform("uRenderAbove", 1.0);
-    }
-}
-
-
+/**
+ * Draws a slider element on the D3.js SVG.
+ * @param {d3.Selection} svg - The D3 selection of the SVG group to draw on.
+ * @param {number} adjWidth - The adjusted width of the drawing area.
+ * @param {number} adjHeight - The adjusted height of the drawing area.
+ * @param {function} onDragCallback - Callback function for drag events.
+ * @param {boolean} isLive - True if it's a live slider, false for saved.
+ */
 function drawSliderElement(svg, adjWidth, adjHeight, onDragCallback, isLive = false) {
     const classSuffix = isLive ? 'live' : 'saved';
 
+    const initialX = isLive && typeof cursor_x !== 'undefined' ? cursor_x * adjWidth : adjWidth / 2;
+    const initialY = isLive && typeof cursor_y !== 'undefined' ? (1 - cursor_y) * adjHeight : adjHeight / 2; // Default to center if no cursor_y
+
     const line = svg.append("line")
-        .attr("x1", adjWidth / 2)
-        .attr("x2", adjWidth / 2)
-        .attr("y1", 0)
+        .attr("x1", initialX)
+        .attr("x2", initialX)
+        .attr("y1", initialY)
         .attr("y2", adjHeight)
         .attr("class", `${classSuffix}-line`)
         .style("stroke", "white")
@@ -432,12 +424,12 @@ function drawSliderElement(svg, adjWidth, adjHeight, onDragCallback, isLive = fa
         .style("cursor", "pointer");
 
     if (isLive) {
-        line.style("stroke-dasharray", "6,3"); // 👈 dashed line for live slider
+        line.style("stroke-dasharray", "6,3"); // Dashed line for live slider
     }
 
     const ball = svg.append("circle")
-        .attr("cx", adjWidth / 2)
-        .attr("cy", 0)
+        .attr("cx", initialX)
+        .attr("cy", initialY)
         .attr("r", 10)
         .attr("class", `${classSuffix}-ball`)
         .style("fill", "white")
