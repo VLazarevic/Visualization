@@ -39,6 +39,9 @@ class CuttingPlaneEditor {
         this.colorPicker = document.getElementById('planeColor');
         this.renderAboveRadio = document.querySelector('input[name="renderSide"][value="above"]');
         this.renderBelowRadio = document.querySelector('input[name="renderSide"][value="below"]');
+        // NEW: Reference to the toggle checkbox
+        this.togglePlaneMeshCheckbox = document.getElementById('togglePlaneMesh');
+
         this.planeMesh = null;
 
         // Store the plane's current orientation as a quaternion
@@ -58,7 +61,10 @@ class CuttingPlaneEditor {
      */
     setVolume(volume) {
         this.volume = volume;
-        this.addCuttingPlaneVisualization(); // Add the plane mesh once volume is set
+        // Only add visualization if the checkbox is initially checked
+        if (this.togglePlaneMeshCheckbox && this.togglePlaneMeshCheckbox.checked) {
+            this.addCuttingPlaneVisualization(); // Add the plane mesh once volume is set
+        }
     }
 
     /**
@@ -67,7 +73,7 @@ class CuttingPlaneEditor {
      */
     init() {
         // Basic check to ensure all required UI elements are found
-        if (!this.xSlider || !this.ySlider || !this.zSlider || !this.colorPicker || !this.renderAboveRadio || !this.renderBelowRadio) {
+        if (!this.xSlider || !this.ySlider || !this.zSlider || !this.colorPicker || !this.renderAboveRadio || !this.renderBelowRadio || !this.togglePlaneMeshCheckbox) {
             console.error("Cutting plane UI elements not found. Make sure their IDs are correct in HTML.");
             showUserMessage("Error: Cutting plane UI elements not found. Check console for details.");
             return;
@@ -84,6 +90,9 @@ class CuttingPlaneEditor {
         this.colorPicker.addEventListener('input', () => this.debouncedPlaneUpdate());
         this.renderAboveRadio.addEventListener('change', () => this.debouncedPlaneUpdate());
         this.renderBelowRadio.addEventListener('change', () => this.debouncedPlaneUpdate());
+
+        // NEW: Event listener for the toggle checkbox
+        this.togglePlaneMeshCheckbox.addEventListener('change', () => this.togglePlaneMeshVisibility());
 
         // Initialize shader uniforms for the cutting plane on setup
         if (this.firstHitShader && this.firstHitShader.material) {
@@ -126,6 +135,25 @@ class CuttingPlaneEditor {
     }
 
     /**
+     * Toggles the visibility of the planeMesh.
+     * This is called when the 'Show Plane Visualization' checkbox changes.
+     */
+    togglePlaneMeshVisibility() {
+        if (!this.planeMesh) {
+            // If plane mesh doesn't exist, try to add it if checkbox is checked
+            if (this.togglePlaneMeshCheckbox.checked) {
+                this.addCuttingPlaneVisualization();
+            }
+            // If it still doesn't exist (e.g., volume not loaded), nothing more to do
+            return;
+        }
+
+        this.planeMesh.visible = this.togglePlaneMeshCheckbox.checked;
+        this.paintCallback(); // Re-render the scene to reflect the change
+    }
+
+
+    /**
      * Updates the cutting plane's parameters in the shader uniforms and its visual mesh.
      * @param {string} changedAxis - 'x', 'y', or 'z' if a slider was moved, otherwise null.
      */
@@ -136,7 +164,7 @@ class CuttingPlaneEditor {
 
         const currentX = parseFloat(this.xSlider.value);
         const currentY = parseFloat(this.ySlider.value);
-        const translationValue = parseFloat(this.zSlider.value);
+        const translationSliderValue = parseFloat(this.zSlider.value); // Renamed for clarity
         const color = this.colorPicker.value;
         const renderAbove = this.renderAboveRadio.checked;
 
@@ -167,10 +195,10 @@ class CuttingPlaneEditor {
         const currentNormal = this.initialPlaneNormal.clone().applyQuaternion(this.planeQuaternion);
         currentNormal.normalize(); // Ensure it's a unit vector
 
-        // The 'w' component of the plane equation (Ax + By + Cz + D = 0) is -D,
-        // where D is the signed distance from the origin along the normal.
-        // So, translationValue is the distance along the *current normal*.
-        const planeConstant = -translationValue; // The constant 'D' in the plane equation
+
+        // The 'D' constant in the plane equation (Ax + By + Cz + D = 0).
+        // It is the negative of the signed distance from the origin to the plane.
+        const planeConstantInShader = -translationSliderValue;
 
         // Update the shader uniforms
         if (this.firstHitShader.material.uniforms.uPlane) {
@@ -178,7 +206,7 @@ class CuttingPlaneEditor {
                 currentNormal.x,
                 currentNormal.y,
                 currentNormal.z,
-                planeConstant
+                planeConstantInShader // This is D
             );
         }
         if (this.firstHitShader.material.uniforms.uPlaneColor) {
@@ -190,14 +218,18 @@ class CuttingPlaneEditor {
 
         // Update the visual representation of the plane mesh
         if (this.planeMesh) {
-            // Position the mesh by moving it along its current normal vector by the calculated offset
-            this.planeMesh.position.copy(currentNormal).multiplyScalar(-planeConstant); // Use -planeConstant for positive distance
+            // Only update position/color if visible, otherwise, it won't be drawn anyway.
+            // But it's good practice to keep its internal state updated.
+            this.planeMesh.position.copy(currentNormal).multiplyScalar(planeConstantInShader);
 
             // Apply the stored quaternion to the plane mesh for its orientation
             this.planeMesh.setRotationFromQuaternion(this.planeQuaternion);
 
             // Update the color of the visual plane mesh
             this.planeMesh.material.color.set(color);
+
+            // Ensure its visibility matches the checkbox state
+            this.planeMesh.visible = this.togglePlaneMeshCheckbox.checked;
         }
 
         // Trigger the scene re-render
@@ -240,6 +272,9 @@ class CuttingPlaneEditor {
         this.planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
         this.planeMesh.renderOrder = 1; // Render after the volume for correct transparency/depth sorting
         scene.add(this.planeMesh);
+
+        // Set initial visibility based on checkbox state
+        this.planeMesh.visible = this.togglePlaneMeshCheckbox.checked;
 
         // Perform an initial update to position and orient the newly added plane mesh
         this.updatePlane();
