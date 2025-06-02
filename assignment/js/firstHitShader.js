@@ -5,7 +5,6 @@ class FirstHitShader extends Shader {
 
         // Initialize cutting plane uniforms
         this.setUniform("uPlane", new THREE.Vector4(0, 0, -1, 0));
-        this.setUniform("uPlaneColor", new THREE.Color(0xff0000));
         this.setUniform("uRenderAbove", 1.0);
     }
 
