@@ -2,9 +2,9 @@
 #version 330 es
 #endif
 
-precision highp int;
 precision highp float;
 precision highp sampler3D;
+precision highp int;
 
 uniform sampler3D volume;
 uniform sampler3D gradient;
@@ -16,18 +16,18 @@ uniform float uRenderAbove;
 uniform float steps;
 
 const int MAX_ISO_VALUES = 3;
-uniform float iso_values[MAX_ISO_VALUES];
 uniform vec3 surface_colors[MAX_ISO_VALUES];
 uniform float opacities[MAX_ISO_VALUES];
+uniform float iso_values[MAX_ISO_VALUES];
 
 uniform float ssaoRadius;
 uniform float ssaoBias;
 uniform float ssaoStrength;
 
+out vec4 fragColor;
+
 in vec3 vEye;
 in vec3 vDir;
-
-out vec4 fragColor;
 
 /**
     Intersect ray with bounding box and calculate and return intersection points

@@ -14,14 +14,14 @@ let container = null;
 let volume = null;
 let fileInput = null;
 let firstHitShader = null;
-let cuttingPlaneEditor = null; // New instance for the editor
+let cuttingPlaneEditor = null;
 
-let cursor_x;
 let cursor_y;
+let cursor_x;
 
-let isoValues = [0.5, -1, -1]; // Example iso-values
+let isoValues = [0.5, -1, -1];
 let surfaceColors = [new THREE.Vector3(1, 1, 1), new THREE.Vector3(1, 1, 1), new THREE.Vector3(1, 1, 1)];
-let opacities = [1.0, -1, -1]; // Example opacities
+let opacities = [1.0, -1, -1];
 
 let theColorRgb = new THREE.Vector3(255, 255, 255);
 
@@ -33,8 +33,8 @@ let theColorRgb = new THREE.Vector3(255, 255, 255);
 function init() {
     // Volume viewer container
     container = document.getElementById("viewContainer");
-    canvasWidth = window.innerWidth * 0.7;
     canvasHeight = window.innerHeight * 0.7;
+    canvasWidth = window.innerWidth * 0.7;
 
     // WebGL renderer
     renderer = new THREE.WebGLRenderer();
@@ -361,22 +361,22 @@ async function resetVis() {
     const bboxGeom = new THREE.BoxGeometry(volume.width, volume.height, volume.depth);
     const volumeShader = firstHitShader.material;
 
-    await firstHitShader.load();   // Shader → compile & link before use
+    await firstHitShader.load();
     const volumeMesh = new THREE.Mesh(bboxGeom, volumeShader);
     scene.add(volumeMesh);
 
     // Update the cutting plane editor with the new volume reference
     if (cuttingPlaneEditor) {
         cuttingPlaneEditor.setVolume(volume);
-        cuttingPlaneEditor.updatePlane(); // Ensure plane is initialized with new volume if needed
+        cuttingPlaneEditor.updatePlane();
     }
 
     // Place an orbit camera that circles around the origin
     orbitCamera = new OrbitCamera(
         camera,
-        new THREE.Vector3(0, 0, 0),      // look-at target
-        2 * volume.max,                  // default distance
-        renderer.domElement              // input element for mouse control
+        new THREE.Vector3(0, 0, 0),
+        2 * volume.max,
+        renderer.domElement
     );
 
     // Kick off the render loop
@@ -416,7 +416,7 @@ function updateHistogramForCuttingPlane() {
 
                     const dotProduct = planeNormal.x * worldX + planeNormal.y * worldY + planeNormal.z * worldZ;
 
-                    if ((renderAbove && dotProduct > -planeD) || (!renderAbove && dotProduct < -planeD)) { // Note: uPlane.w is -D, so compare with -planeD
+                    if ((renderAbove && dotProduct > -planeD) || (!renderAbove && dotProduct < -planeD)) {
                         const index = x + y * volume.width + z * volume.width * volume.height;
                         visibleVoxels.push(volume.voxels[index]);
                     }
@@ -439,7 +439,7 @@ function drawSliderElement(svg, adjWidth, adjHeight, onDragCallback, isLive = fa
     const classSuffix = isLive ? 'live' : 'saved';
 
     const initialX = isLive && typeof cursor_x !== 'undefined' ? cursor_x * adjWidth : adjWidth / 2;
-    const initialY = isLive && typeof cursor_y !== 'undefined' ? (1 - cursor_y) * adjHeight : adjHeight / 2; // Default to center if no cursor_y
+    const initialY = isLive && typeof cursor_y !== 'undefined' ? (1 - cursor_y) * adjHeight : adjHeight / 2;
 
     const line = svg.append("line")
         .attr("x1", initialX)
@@ -452,7 +452,8 @@ function drawSliderElement(svg, adjWidth, adjHeight, onDragCallback, isLive = fa
         .style("cursor", "pointer");
 
     if (isLive) {
-        line.style("stroke-dasharray", "6,3"); // Dashed line for live slider
+        // Dashed line for live slider
+        line.style("stroke-dasharray", "6,3");
     }
 
     const ball = svg.append("circle")

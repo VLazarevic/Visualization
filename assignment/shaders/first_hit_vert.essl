@@ -8,6 +8,7 @@ out vec3 vEye;
 out vec3 vDir;
 
 void main() {
+
     // compute eye pos and direction of ray in scaled volume space
     vEye = vec4(cameraPosition, 1.0).xyz / volume_scale;
     vDir = (position / volume_scale) - vEye;
