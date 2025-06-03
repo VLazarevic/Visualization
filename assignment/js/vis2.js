@@ -51,6 +51,14 @@ function init() {
     saveButtonPress();
     deleteButtonPress();
 
+    // Initialize SSAO parameters
+    firstHitShader.material.uniforms.ssaoRadius = { value: 0.5 };
+    firstHitShader.material.uniforms.ssaoBias = { value: 0.025 };
+    firstHitShader.material.uniforms.ssaoStrength = { value: 1.0 };
+
+    // Initialize SSAO controls
+    initSSAOControls();
+
     firstHitShader.setIsoValues(isoValues);
     firstHitShader.setSurfaceColors(surfaceColors);
     firstHitShader.setOpacities(opacities);
@@ -68,6 +76,26 @@ function init() {
     // Initialize the cutting plane editor
     cuttingPlaneEditor = new CuttingPlaneEditor(firstHitShader, paint, updateHistogramForCuttingPlane);
     cuttingPlaneEditor.init();
+}
+
+function initSSAOControls() {
+    // SSAO Radius control
+    document.getElementById('ssaoRadius').addEventListener('input', function() {
+        firstHitShader.material.uniforms.ssaoRadius.value = parseFloat(this.value);
+        paint();
+    });
+
+    // SSAO Bias control
+    document.getElementById('ssaoBias').addEventListener('input', function() {
+        firstHitShader.material.uniforms.ssaoBias.value = parseFloat(this.value);
+        paint();
+    });
+
+    // SSAO Strength control
+    document.getElementById('ssaoStrength').addEventListener('input', function() {
+        firstHitShader.material.uniforms.ssaoStrength.value = parseFloat(this.value);
+        paint();
+    });
 }
 
 /**
