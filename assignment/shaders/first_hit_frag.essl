@@ -20,6 +20,10 @@ uniform float iso_values[MAX_ISO_VALUES];
 uniform vec3 surface_colors[MAX_ISO_VALUES];
 uniform float opacities[MAX_ISO_VALUES];
 
+uniform float ssaoRadius;
+uniform float ssaoBias;
+uniform float ssaoStrength;
+
 in vec3 vEye;
 in vec3 vDir;
 
@@ -57,6 +61,35 @@ vec3 compute_gradient(vec3 coord) {
                    texture(volume, coord - vec3(0.0, 0.0, eps)).r;
 
         return normalize(vec3(gx, gy, gz));
+}
+
+// Function to generate a random direction vector
+vec3 random(vec2 co) {
+    float x = fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+    float y = fract(sin(dot(co.xy ,vec2(4.898,7.23))) * 23421.631);
+    float z = fract(sin(dot(co.xy ,vec2(53.23,49.13))) * 89432.764);
+    return normalize(vec3(x, y, z));
+}
+
+// Function to calculate ambient occlusion
+float calculateAO(vec3 pos, vec3 normal) {
+    float occlusion = 0.0;
+    
+    // Sample points in hemisphere oriented along the normal
+    for(int i = 0; i < 8; i++) {
+        vec3 sampleDir = random(pos.xy + float(i));
+        sampleDir = sampleDir * 0.5 + 0.5; // Transform to [0,1] range
+        sampleDir = mix(sampleDir, normal, 0.5); // Orient towards normal
+        
+        vec3 samplePos = pos + sampleDir * ssaoRadius;
+        float sampleDepth = texture(volume, samplePos + vec3(0.5)).r;
+        
+        // Compare depths
+        float rangeCheck = smoothstep(0.0, 1.0, ssaoRadius / abs(pos.z - sampleDepth));
+        occlusion += (sampleDepth <= pos.z - ssaoBias ? 1.0 : 0.0) * rangeCheck;
+    }
+    
+    return 1.0 - (occlusion / 8.0) * ssaoStrength;
 }
 
 void main() {
@@ -112,8 +145,11 @@ void main() {
 
                 vec3 normal = compute_gradient(hitPos + 0.5);
 
-                // Blinn-Phong components
-                float ambient = 0.2;
+                // Calculate ambient occlusion
+                float ao = calculateAO(hitPos, normal);
+
+                // Blinn-Phong components * ao
+                float ambient = 0.2 * ao;
                 vec3 ambientLight = ambient * light;
 
                 float diffuseFactor = max(dot(normal, lightVec), 0.0);
