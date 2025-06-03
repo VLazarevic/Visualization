@@ -1,6 +1,5 @@
 /**
  * Global function to show user messages.
- * This is a placeholder; you'd typically implement a UI update here.
  * @param {string} message - The message to display.
  */
 function showUserMessage(message) {
@@ -13,8 +12,7 @@ function showUserMessage(message) {
  */
 class CuttingPlaneEditor {
     /**
-     * @param {THREE.ShaderMaterial} firstHitShader - The shader material used for volume rendering,
-     * which needs the cutting plane uniforms.
+     * @param {THREE.ShaderMaterial} firstHitShader - The shader material used for volume rendering.
      * @param {function} paintCallback - Callback function to trigger a re-render of the scene.
      * @param {function} updateHistogramCallback - Callback function to re-calculate and update the histogram.
      */
@@ -39,8 +37,8 @@ class CuttingPlaneEditor {
 
         // Store the plane's current orientation as a quaternion
         this.planeQuaternion = new THREE.Quaternion();
-        // Store the initial orientation of the plane's normal (usually +Z)
-        this.initialPlaneNormal = new THREE.Vector3(0, 0, 1); // This is the local Z-axis of the plane mesh
+        // Store the initial orientation of the plane's normal (z-direction)
+        this.initialPlaneNormal = new THREE.Vector3(0, 0, 1);
 
         // Store previous slider values for incremental rotation calculation
         this.prevXValue = 0;
@@ -49,7 +47,6 @@ class CuttingPlaneEditor {
 
     /**
      * Sets the volume data for the editor.
-     * This is typically called after the volume is loaded.
      * @param {Volume} volume - The volume data object.
      */
     setVolume(volume) {
@@ -58,7 +55,6 @@ class CuttingPlaneEditor {
 
     /**
      * Initializes the UI elements and attaches event listeners.
-     * Must be called after the DOM is loaded and UI elements exist.
      */
     init() {
         if (!this.xSlider || !this.ySlider || !this.zSlider || !this.renderAboveRadio || !this.renderBelowRadio) {
@@ -74,7 +70,7 @@ class CuttingPlaneEditor {
         // Attach event listeners for sliders and other controls.
         this.xSlider.addEventListener('input', () => this.debouncedPlaneUpdate('x'));
         this.ySlider.addEventListener('input', () => this.debouncedPlaneUpdate('y'));
-        this.zSlider.addEventListener('input', () => this.debouncedPlaneUpdate('z')); // Z doesn't cause rotation
+        this.zSlider.addEventListener('input', () => this.debouncedPlaneUpdate('z'));
         this.renderAboveRadio.addEventListener('change', () => this.debouncedPlaneUpdate());
         this.renderBelowRadio.addEventListener('change', () => this.debouncedPlaneUpdate());
 
@@ -107,7 +103,7 @@ class CuttingPlaneEditor {
     }
 
     /**
-     * Debounces calls to `updateHistogramCallback` to prevent excessive CPU usage.
+     * Debounces calls to `updateHistogramCallback`.
      */
     debouncedHistogramUpdate() {
         clearTimeout(this.histogramUpdateTimeout);
@@ -117,7 +113,7 @@ class CuttingPlaneEditor {
     }
 
     /**
-     * Updates the cutting plane's parameters in the shader uniforms and its visual mesh.
+     * Updates the cutting plane's parameters in the shader uniforms.
      * @param {string} changedAxis - 'x', 'y', or 'z' if a slider was moved, otherwise null.
      */
     updatePlane(changedAxis = null) {
@@ -130,12 +126,15 @@ class CuttingPlaneEditor {
         const translationSliderValue = parseFloat(this.zSlider.value);
         const renderAbove = this.renderAboveRadio.checked;
 
-        // Calculate incremental rotation based on the changed slider
+        // Applies incremental rotation to the cutting plane based on slider input.
+        // Rotations are performed around the plane's local X or Y axes,
+        // calculated by transforming the initial local axes by the plane's current orientation.
+        // This ensures intuitive, relative control and avoids gimbal lock.
         if (changedAxis === 'x' && currentX !== this.prevXValue) {
             const deltaX = (currentX - this.prevXValue) * Math.PI; // Convert delta to radians
             const localXAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(this.planeQuaternion).normalize();
             const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(localXAxis, deltaX);
-            this.planeQuaternion.multiplyQuaternions(rotationQuaternion, this.planeQuaternion); // Apply new rotation
+            this.planeQuaternion.multiplyQuaternions(rotationQuaternion, this.planeQuaternion);
             this.planeQuaternion.normalize();
         } else if (changedAxis === 'y' && currentY !== this.prevYValue) {
             const deltaY = (currentY - this.prevYValue) * Math.PI; // Convert delta to radians
@@ -165,7 +164,7 @@ class CuttingPlaneEditor {
                 currentNormal.x,
                 currentNormal.y,
                 currentNormal.z,
-                planeConstantInShader // This is D
+                planeConstantInShader
             );
         }
         if (this.firstHitShader.material.uniforms.uRenderAbove) {

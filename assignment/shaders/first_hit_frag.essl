@@ -91,7 +91,7 @@ void main() {
     // March through the volume
     for (float t = bounds.x; t < bounds.y; t += stepSize) {
 
-        // --- CUTTING PLANE CLIP HERE ---
+        // --- CUTTING PLANE CLIP  ---
         vec3 posWorld = pos;
         float planeDist = dot(posWorld, uPlane.xyz) + uPlane.w;
 
